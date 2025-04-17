@@ -28,7 +28,7 @@ load.lib <- c("tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr",
               "osmextract", "ggridges",
               "gtfstools", "igraph", "tidygraph", "ggraph",
               "sfnetworks", "stplanr", "spDataLarge",
-              "arrow")
+              "arrow", "did")
 install.lib <- load.lib[!load.lib %in% installed.packages()]
 for(lib in install.lib) install.packages(lib,dependencies=TRUE)
 sapply(load.lib, require, character=TRUE)
@@ -45,6 +45,8 @@ lead <- dplyr::lead
 tmap_mode("view")
 
 source("scripts_tempos_viagens/funs/helper_feriados.R")
+source("scripts_tempos_viagens/funs/helper_ids_speedcameras.R")
+source("scripts_tempos_viagens/0_setup_plots.R")
 
 
 # ############################################################################ #

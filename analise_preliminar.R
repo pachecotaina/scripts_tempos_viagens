@@ -1,3 +1,7 @@
+arrow::set_cpu_count(8)  # Use multiple threads
+arrow::default_memory_pool()
+
+
 # ############################################################################ #
 ####        DEFINIR STATUS DE CONTROLE OU TRATAMENTO PARA AS ROTAS          ####
 # ############################################################################ #
@@ -5,7 +9,7 @@
 vec_days <- tibble(
   "date" = seq.Date(
     as.Date("2015-01-01", "%Y-%m-%d"), 
-    as.Date("2016-12-31", "%Y-%m-%d"), 
+    as.Date("2016-03-31", "%Y-%m-%d"), 
     by = 1)) %>% 
   mutate(weekday = weekdays(date)) %>% 
   filter(weekday %notin% c("Saturday", "Sunday") & date %notin% bank_holiday$date) %>% 
@@ -53,59 +57,93 @@ vec_treated <- unique(df_routes$pair_od[df_routes$status == "Treated"])
 # ############################################################################ #
 ####           PUXAR DADOS DE TEMPO DE VIAGEM ENTRE OS PARES                ####
 # ############################################################################ #
-df_matrix <- open_dataset(
-  paste0("data/intermediate/matrix_grouped_osrm/", vec_days, ".parquet")) %>% 
-  mutate(pair_od = paste0(from_id, "-", to_id)) %>% 
-  filter(pair_od %in% vec_od) %>%  
+df_routes_info <- df_routes %>% distinct(pair_od, duration, distance)
+df_infos <- df_routes %>% 
+  group_by(pair_od) %>% 
+  reframe(data_vigor = min(data_vigor)) %>% 
+  left_join(df_routes_info, by = "pair_od")
+
+# Step 2.1: Read only required columns and filter early
+ds_matrix <- open_dataset(
+  paste0("data/intermediate/matrix_grouped_osrm/", vec_days, ".parquet"))
+
+df_matrix <- ds_matrix %>%
+  filter(dep_hour == 7) %>% 
+  mutate(pair_od = paste0(from_id, "-", to_id)) %>%
+  filter(pair_od %in% vec_od) %>% # careful if vec_od is huge
+  select(-from_id, -to_id)
+
+object.size(df_matrix)
+# system.time(df_matrix %>% collect())
+
+# Step 2.2: Pull into memory after filtering
+df_matrix_local <- df_matrix %>%
   collect()
 
-df_dates <- df_routes %>% 
-  group_by(pair_od) %>% 
-  summarize(data_vigor = min(data_vigor))
-
-df_matrix <- df_matrix %>% 
-  left_join(
-    df_routes %>% distinct(pair_od, duration, distance), 
-    by = "pair_od") %>% 
-  left_join(
-    df_dates,
-    by = "pair_od")
-
-df_matrix <- df_matrix %>% 
-  ungroup() %>% 
-  select(-dur_obs_sd) %>% 
+df_matrix_local <- df_matrix_local %>%
+  left_join(df_infos, by = "pair_od") %>%
   mutate(
-    data = 
-      as.Date(data, "%Y%m%d"),
-    period =
-      ifelse(data > data_vigor, "1.After","0.Before"),
-    
-    status = 
-      ifelse(pair_od %in% vec_treated, "Treated", "Control"),
-    status = 
-      ifelse(!is.na(period), "Treated", "Control"),
-    status_d = 
-      ifelse(status == "Treated", 1, 0),
-    
-    period = case_when(
-      data > as.Date("2015-07-19") & status == "Control" ~ "1.After",
-      data <= as.Date("2015-07-19") & status == "Control" ~ "0.Before",
-      status == "Treated" ~ period),
-    period_d =
-      ifelse(period == "1.After", 1 , 0),
-    
-    day_time = case_when(
-      dep_hour %in% c(0, 1, 2, 3, 4) ~ "1.Off-peak",
-      dep_hour %in% c(7, 8, 9) ~ "2.Morning-peak",
-      dep_hour %in% c(17, 18, 19) ~ "3.Evening-peak",
-      TRUE ~ NA_character_),
-    running_var = ifelse(
-      !is.na(data_vigor), data - data_vigor, data - as.Date("2015-07-19")),
-    
-    day_hour = paste0(
-      str_replace_all(as.character(data), "-", ""), 
-      "-",
-      dep_hour))
+    treat = as.integer(pair_od %in% vec_treated),
+    data_vigor = ifelse(is.na(data_vigor), 0, data_vigor),
+    data = as.Date(data, format = "%Y%m%d"))
+
+# df_matrix <- open_dataset(
+#   paste0("data/intermediate/matrix_grouped_osrm/", vec_days, ".parquet")) %>% 
+#   mutate(
+#     pair_od = paste0(from_id, "-", to_id)) %>% 
+#   filter(pair_od %in% vec_od) %>%  
+#   collect() 
+# 
+# df_matrix <- df_matrix %>% 
+#   left_join(
+#     df_routes %>% distinct(pair_od, duration, distance), 
+#     by = "pair_od") %>% 
+#   left_join(
+#     df_dates,
+#     by = "pair_od")
+# 
+# df_matrix <- df_matrix %>% 
+#   collect() %>% 
+#   mutate(
+#     treat = ifelse(pair_od %in% vec_treated, 1, 0),
+#     data_vigor = ifelse(is.na(data_vigor), 0, data_vigor),
+#     data = as.Date(data, "%Y%m%d"))
+
+# df_matrix <- df_matrix %>% 
+#   # ungroup() %>% 
+#   select(-dur_obs_sd) %>% 
+#   mutate(
+#     data = 
+#       as.Date(data, "%Y%m%d"),
+#     period =
+#       ifelse(data > data_vigor, "1.After","0.Before"),
+#     
+#     status = 
+#       ifelse(pair_od %in% vec_treated, "Treated", "Control"),
+#     status = 
+#       ifelse(!is.na(period), "Treated", "Control"),
+#     status_d = 
+#       ifelse(status == "Treated", 1, 0),
+#     
+#     period = case_when(
+#       data > as.Date("2015-07-19") & status == "Control" ~ "1.After",
+#       data <= as.Date("2015-07-19") & status == "Control" ~ "0.Before",
+#       status == "Treated" ~ period),
+#     period_d =
+#       ifelse(period == "1.After", 1 , 0),
+#     
+#     day_time = case_when(
+#       dep_hour %in% c(0, 1, 2, 3, 4) ~ "1.Off-peak",
+#       dep_hour %in% c(7, 8, 9) ~ "2.Morning-peak",
+#       dep_hour %in% c(17, 18, 19) ~ "3.Evening-peak",
+#       TRUE ~ NA_character_),
+#     running_var = ifelse(
+#       !is.na(data_vigor), data - data_vigor, data - as.Date("2015-07-19")),
+#     
+#     day_hour = paste0(
+#       str_replace_all(as.character(data), "-", ""), 
+#       "-",
+#       dep_hour))
 
 vec_control <- unique(df_matrix$pair_od[df_matrix$status == "Control"])
 vec_treat <- unique(df_matrix$pair_od[df_matrix$status == "Treated"])
