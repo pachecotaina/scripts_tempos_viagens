@@ -1,4 +1,3 @@
-
 # Using osrmRoute
 sc_points <- helper_geo %>% 
   count(id) %>% 

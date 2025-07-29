@@ -49,7 +49,7 @@ df_routes <- df_routes %>%
 # verificar quantas rotas temos de cada tipo
 table(df_routes$status)
 # Control Treated 
-# 2849    2496
+# 2477    2063
 
 vec_od <- unique(df_routes$pair_od)
 vec_treated <- unique(df_routes$pair_od[df_routes$status == "Treated"])

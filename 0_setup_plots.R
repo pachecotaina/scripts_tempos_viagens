@@ -13,8 +13,8 @@ my_theme <- theme_classic(base_size = 14) +
     plot.caption = element_text(hjust = 0),  # Left-align caption
     plot.caption.position = "plot",
     legend.position = "top",
-    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.3),
-    legend.box.margin = margin(t = -15, r = 0, b = 0, l = 0)
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.3)#,
+    # legend.box.margin = margin(t = -10, r = 0, b = 0, l = 0)
   )
 
 # Define reusable y-axis formatting
@@ -88,6 +88,7 @@ my_scale <-
     location = "br",  # Position on the map
     width_hint = 0.3  # Width of the scale bar
   ) 
+
 # 
 # ggsave(
 #   paste0("figures_PDE/map_BAR_max_diff.jpeg"),

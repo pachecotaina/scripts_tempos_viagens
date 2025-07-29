@@ -23,10 +23,16 @@ vec_days <- df_days %>%
 df_routes <- read_parquet(
   "data/intermediate/osrm/pairs_od_sample.parquet")
 
+length(unique(df_routes$pair_od)) # 1600
+df_routes %>% distinct(pair_od, status) %>% count(status)
+
 # abrir vias com velocidades alteradas
 shp_vias <- read_sf(
   "data/input/vias_vel_reduz/ViasVelocidadeReduzida_Bloomberg_SIRGAS200023S.shp") %>% 
-  st_transform(4326)
+  st_transform(4326) %>% 
+  filter(
+    data_vigor >= as.Date("01-01-2015")) %>% 
+  filter(data_vigor <= as.Date("2016-12-31"))
 
 # unir bancos
 df_vias <- shp_vias %>% 
@@ -47,12 +53,21 @@ df_vias <- shp_vias %>%
 df_routes <- df_routes %>% 
   left_join(df_vias, by = "cvc_codlog") %>% 
   mutate(
-    status = ifelse(is.na(data_vigor), "Control", status))
+    status2 = ifelse(is.na(data_vigor), "Control", status))
+
+df_problemas <- df_routes %>% 
+  filter(status != status2)
 
 # verificar quantas rotas temos de cada tipo
-table(df_routes$status)
+df_routes %>% distinct(pair_od, status) %>% count(status)
 # Control Treated 
-# 2849    2496
+# 873    911
+
+df_routes %>% filter(status == status2) %>% 
+  distinct(pair_od, status) %>% count(status)
+
+df_routes <- df_routes %>%
+  filter(status == status2)
 
 vec_od <- unique(df_routes$pair_od)
 vec_treated <- unique(df_routes$pair_od[df_routes$status == "Treated"])
@@ -125,8 +140,10 @@ for (i in seq_along(vec_dep_hours)) {
       year_treat = as.numeric(year(data_vigor)),
       month = ifelse(year == 2015, month(data), month(data) + 12),
       month_treat = ifelse(year_treat == 2015, month(data_vigor), month(data_vigor) + 12),
-      month_treat = ifelse(is.na(month_treat), 0, month_treat)) %>% 
-    filter(month_treat != 3)
+      month_treat = ifelse(is.na(month_treat), 0, month_treat)#,
+      # month_treat = ifelse(is.na(data_vigor) & treat == 1, 7, month_treat)
+      ) %>% 
+    filter(month_treat %notin% c(3, 5, 6))
 }
 
 walk2(list_hourly_data, names(list_hourly_data), ~ {

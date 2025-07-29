@@ -44,6 +44,12 @@ lead <- dplyr::lead
 
 tmap_mode("view")
 
+# import other codes ----
+# source <- function(f, encoding = 'UTF-8') {
+#   l <- readLines(f, encoding=encoding)
+#   eval(parse(text=l),envir=.GlobalEnv)
+# }
+
 source("scripts_tempos_viagens/funs/helper_feriados.R")
 source("scripts_tempos_viagens/funs/helper_ids_speedcameras.R")
 source("scripts_tempos_viagens/0_setup_plots.R")
@@ -107,9 +113,9 @@ source("scripts_tempos_viagem/pairOD_streets.R")
 #' tratado e controle com base no shape de vias tratadas da Bloomberg
 #' >> O período antes de qualquer alteração nas velocidades vai de 2015-01-01 a 
 #' 2015-07-19, então:
-#'       1. Filtro apenas para rotas que possuem o menos 5 observações no período
+#'       1. Filtro apenas para rotas que possuem o menos 23 observações no período
 #' >> Diversas rotas são muito pequenas, e esses casos normalmente são erros. 
-#'       2. Filtro para rotas de 100m de distância ou mais
+#'       2. Filtro para rotas de 1 km de distância ou mais
 #' >> Testo duas maneiras de classificar as rotas entre tratada/controle:
 #'    A) Rotas que possuem apenas 1 via, e uso a classificação da via
 #'    B) Rotas que possuem status homogêneo, ou seja, mesmo que a rota use duas
@@ -152,7 +158,63 @@ source("scripts_tempos_viagem/make_matrix_grouped_osrm.R")
 #'    - data/intermediate/matrix_grouped_osrm/<DIA>.parquet
 
 # ############################################################################ #
+####                              DESCRIPTIVES                              ####
+# ############################################################################ #
+source("scripts_tempos_viagem/rotas_por_tratamento.R")
+source("scripts_tempos_viagem/make_plots.R")
+source("scripts_tempos_viagem/map_rotas_tratadas_controle.R")
+
+# ############################################################################ #
 ####                      CREATE DATA FOR ANALYSIS                          ####
+# ############################################################################ #
+source("scripts_tempos_viagens/did_make_data.R")
+
+# ############################################################################ #
+####                       ANALYSIS - ALL GROUPS                            ####
+# ############################################################################ #
+source("scripts_tempos_viagens/did_analise.R")
+#' INPUT
+#'    - "data/output/df_dep_hour_hour_", vec_dep_hours[h], ".parquet"
+#' OUTPUT
+#'    - paste0("results/att_hour_", sprintf("%02d", vec_dep_hours[i]), ".rds")
+#'    - "figures/ES_per_group_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"
+#'    - "figures/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"
+#'    - "figures/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], "_1col.png"
+#'    - "figures/eventstudy_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"
+#'    - "figures/did_att_all_hours.png"
+#'    - "figures/did_att_all_hours_nevertreated.png"
+#'    - "figures/did_att_all_hours_3groups.png"
+#'    - "results/att_summary_table.csv"
+#'    - "results/aggte_combined_summary.csv"
+
+source("scripts_tempos_viagens/did_analise_log.R")
+
+# ############################################################################ #
+####                    ANALYSIS - EXCLUDING GROUP 7                        ####
+# ############################################################################ #
+source("scripts_tempos_viagens/did_analise_no07.R")
+
+source("scripts_tempos_viagens/did_analise_log_no07.R")
+
+# ############################################################################ #
+####                       ANALYSIS - ONLY GROUP 7                          ####
+# ############################################################################ #
+source("scripts_tempos_viagens/did_analise_only07.R")
+
+source("scripts_tempos_viagens/did_analise_log_only07.R")
+
+
+
+
+
+
+
+
+
+
+
+# ############################################################################ #
+####                                 OLD                                    ####
 # ############################################################################ #
 #' >> Olha para os deslocamentos entre 2015-01-01 e 2016-12-31, filtra para vias
 #' que tiveram a velocidade alterada em 2015 ou depois (ano_vigor > 2014)
@@ -165,7 +227,7 @@ source("scripts_tempos_viagem/make_matrix_grouped_osrm.R")
 #'    - "figures/wald_test_all_ep.png"              (todas as rotas, evening peak)
 #'    - "figures/tot_rotas_dia_all_ep.png" (número de rotas por dia, evening peak) 
 #'    - figures/tot_rotas_dia_all_all.png  (número de rotas com ao menos 1 observação no dia) 
-source("scripts_tempos_viagem/analise_preliminar.R")
+# source("scripts_tempos_viagem/analise_preliminar.R")
 #' IDEIAS:
 #'    - Efeito composição: ao longo do tempo temos cada vez mais rotas tanto no
 #'    grupo de tratamento quanto no grupo de controle. Isso acontece porque 2015

@@ -18,7 +18,9 @@ df_id <- read_sf("data/intermediate/osrm/routes_od_streets_2015.gpkg") %>%
   mutate(pair_od = paste0(from_id, "-", to_id)) %>% 
   distinct(from_id, to_id, pair_od, duration) %>% 
   mutate(from_id = str_sub(pair_od, 1, 4),
-         to_id = str_sub(pair_od, 6, 10)) 
+         to_id = str_sub(pair_od, 6, 10))
+
+# length(unique(df_id$pair_od))
 
 setDT(df_id)
 

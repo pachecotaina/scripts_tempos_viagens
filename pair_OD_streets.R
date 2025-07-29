@@ -23,8 +23,8 @@ shp_class <- shp_class %>%
   filter(cvc_classe %in% c("ARTERIAL", "COLETORA", "RODOVIA", "VTR") |
            cvc_nomelg == "R   ANTONIO JOSE ANACLETO")
 
-tm_shape(shp_class) +
-  tm_lines()
+# tm_shape(shp_class) +
+#   tm_lines(col = "cvc_classe")
 
 # ############################################################################ #
 ####      Open street network - vias velocidade reduzida bloomberg          ####

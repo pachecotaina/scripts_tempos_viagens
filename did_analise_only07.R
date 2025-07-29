@@ -13,7 +13,7 @@ for (h in seq_along(vec_dep_hours)) {
       weekday = weekdays(data),
       speed_obs_mean = dur_obs_mean/distance,
       speed_obs_mean = 60/speed_obs_mean) %>% 
-    filter(speed_obs_mean <= 150)
+    filter(speed_obs_mean <= 150) 
 }
 
 # modelo com controle por tipo de via
@@ -42,7 +42,7 @@ for (j in seq_along(control_type)) {
     tryCatch({
       # Load hourly dataset
       df_hour <- list_hourly_data[[i]] %>% 
-        filter(month_treat != 6)
+        filter(month_treat == 7 | month_treat == 0)
       
       # Estimate ATT
       att <- att_gt(
@@ -78,7 +78,7 @@ for (j in seq_along(control_type)) {
         scale_color_viridis_d() +
         scale_x_continuous(breaks = min(list_att[[i]]$event_time):max(list_att[[i]]$event_time)) +
         labs(
-          x = "Meses desde a mudança de velocidade",
+          x = "Tempo desde a mudança de velocidade",
           y = "ATT (Δ tempo de viagem, em minutos)",
           color = "Mês de tratamento",
           title = paste0("Efeitos por grupo de tratamento - ", sprintf("%02d", vec_dep_hours[i]), "h"),
@@ -88,7 +88,7 @@ for (j in seq_along(control_type)) {
         my_theme
       
       ggsave(
-        paste0("figures/ES_per_group_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
+        paste0("figures_only07/ES_per_group_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
         p_es_group, 
         width = 10, 
         height = 6.25)
@@ -137,7 +137,7 @@ for (j in seq_along(control_type)) {
       
       if (length(sig_groups) > 0) {
         att_filtered <- att_tbl #%>%
-          # filter(group %in% sig_groups)
+        # filter(group %in% sig_groups)
         
         p_groups <- att_filtered %>%
           mutate(
@@ -146,7 +146,7 @@ for (j in seq_along(control_type)) {
             mes_real = if_else(time > 12, time - 12, time),
             data = as.Date(paste0(ano, "-", mes_real, "-01"))
           ) %>% 
-          # filter(time >= 4) %>% 
+          filter(time >= 4) %>% 
           mutate(
             período = ifelse(time < group, "Antes da mudança", "Após a mudança de velocidade"),
             mês = as.factor(time),
@@ -181,7 +181,7 @@ for (j in seq_along(control_type)) {
           facet_wrap(~group, ncol = 2)
         
         ggsave(
-          paste0("figures/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
+          paste0("figures_only07/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
           p_groups_2col, 
           width = 14, 
           height = 8)
@@ -190,7 +190,7 @@ for (j in seq_along(control_type)) {
           facet_wrap(~group, ncol = 2)
         
         ggsave(
-          paste0("figures/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], "_1col.png"), 
+          paste0("figures_only07/siggroups_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], "_1col.png"), 
           p_groups_1col, 
           width = 20, 
           height = 27)
@@ -244,7 +244,6 @@ for (j in seq_along(control_type)) {
         # Save event study plot
         es_tbl <- broom::tidy(es)
         p_es <- es_tbl %>%
-          filter(event.time >= -9 & event.time <= 12) %>% 
           mutate(periodo = ifelse(event.time <= 0, "Antes da mudança", "Após a mudança de velocidade")) %>%
           ggplot(aes(x = as.factor(event.time), y = estimate, color = periodo)) +
           geom_hline(yintercept = 0, linetype = "dashed", color = "darkgray") +
@@ -259,7 +258,7 @@ for (j in seq_along(control_type)) {
               "ATT médio geral: ", 
               round(es$overall.att, 2), 
               " [", round(es$overall.att - 1.96*es$overall.se, 2), ", ", 
-              round(es$overall.att + 1.96*es$overall.se, 2), "]")
+              round(es$overall.att + 1.96*es$overall.se, 2), "]")#,
             # caption = caption_label[j]
           ) +
           theme_minimal() +
@@ -267,7 +266,7 @@ for (j in seq_along(control_type)) {
           theme(legend.position = c(0.5, 0.94), legend.direction = "horizontal")
         
         ggsave(
-          paste0("figures/eventstudy_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
+          paste0("figures_only07/eventstudy_hour_", sprintf("%02d", vec_dep_hours[i]), "_", control_type[j], ".png"), 
           p_es, 
           width = 10, 
           height = 6.25)
@@ -300,12 +299,12 @@ att_summary_table %>%
     y = "ATT (Δ tempo de viagem, em minutos)",
     color = "Grupo de controle:"
   ) + 
-  coord_cartesian(ylim = c(-1, 2.4))+
+  coord_cartesian(ylim = c(-0.5, 3.2))+
   my_theme +
   theme(legend.position = c(0.5, 0.92), legend.direction = "horizontal")
 
 ggsave(
-  paste0("figures/did_att_all_hours.png"), 
+  paste0("figures_only07/did_att_all_hours.png"), 
   plot = last_plot(), 
   width = 14, 
   height = 8)
@@ -330,12 +329,12 @@ att_summary_table %>%
     x = "Hora do dia\n(viagens que começam dentro dessa hora)",
     y = "ATT (Δ tempo de viagem, em minutos)"
   ) + 
-  coord_cartesian(ylim = c(-0.5, 2.1))+
+  coord_cartesian(ylim = c(-0.5, 3))+
   my_theme +
   theme(legend.position = "none", legend.direction = "horizontal")
 
 ggsave(
-  paste0("figures/did_att_all_hours_nevertreated.png"), 
+  paste0("figures_only07/did_att_all_hours_nevertreated.png"), 
   plot = last_plot(), 
   width = 11, 
   height = 5)
@@ -367,19 +366,18 @@ aggte_combined_summary %>%
     y = "ATT (Δ tempo de viagem, em minutos)",
     color = "Grupo de controle:"
   ) + 
-  coord_cartesian(ylim = c(-0.2, 2.5))+
+  coord_cartesian(ylim = c(-0.5, 3))+
   facet_wrap(~type, ncol = 1)+
   my_theme +
   theme(
     legend.position = "bottom", legend.direction = "horizontal",
-    legend.box.margin = margin(t =-9, r = 0, b = 0, l = 0))
+    legend.box.margin = margin(t =-5, r = 0, b = 0, l = 0))
 
 ggsave(
-  paste0("figures/did_att_all_hours_3groups.png"), 
+  paste0("figures_only07/did_att_all_hours_3groups.png"), 
   plot = last_plot(), 
   width = 14, 
   height = 8)
 
-write.csv(att_summary_table, "results/att_summary_table.csv", row.names = FALSE)
-write.csv(aggte_combined_summary, "results/aggte_combined_summary.csv", row.names = FALSE)
-
+write.csv(att_summary_table, "results/att_only07_summary_table.csv", row.names = FALSE)
+write.csv(aggte_combined_summary, "results/aggte_only07_combined_summary.csv", row.names = FALSE)
