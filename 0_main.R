@@ -7,9 +7,10 @@ options(scipen=999)
 Sys.setenv("JAVA_HOME" = "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home")
 Sys.setenv("PATH" = paste(Sys.getenv("PATH"), "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin", sep = ":"))
 options(java.parameters = '-Xmx20G')
+Sys.setlocale("LC_TIME", "pt_BR.UTF-8")
 
 # Carregando os pacotes e instalando algum se necessário ----
-load.lib <- c("tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr",
+load.lib <- c("tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr", "purrr",
               "stats", "data.table", "arrow", "lubridate", "ggspatial", #"ggsn",
               "spatstat", "raster", "geodist", #"slopes", 
               "tmap", "car", "scales",
@@ -28,7 +29,7 @@ load.lib <- c("tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr",
               "osmextract", "ggridges",
               "gtfstools", "igraph", "tidygraph", "ggraph",
               "sfnetworks", "stplanr", "spDataLarge",
-              "arrow", "did")
+              "arrow", "did", "fs", "glue")
 install.lib <- load.lib[!load.lib %in% installed.packages()]
 for(lib in install.lib) install.packages(lib,dependencies=TRUE)
 sapply(load.lib, require, character=TRUE)
@@ -203,15 +204,62 @@ source("scripts_tempos_viagens/did_analise_only07.R")
 
 source("scripts_tempos_viagens/did_analise_log_only07.R")
 
+# ############################################################################ #
+####         MAKE DATA - VOLUMES AND SPEEDS AT THE SPEED CAMERA             ####
+# ############################################################################ #
+source("scripts_tempos_viagens/make_df_radares.R")
+source("scripts_tempos_viagens/did_analise_radares_vol.R")
+source("scripts_tempos_viagens/did_analise_radares_vol_dia.R")
+source("scripts_tempos_viagens/did_analise_radares_vol_hora.R")
+source("scripts_tempos_viagens/did_analise_radares_vel_hora.R")
 
 
 
 
+# ############################################################################ #
+####          MAKE DATA - HYPERCONGESTION AT THE SPEED CAMERA               ####
+# ############################################################################ #
+#' definir a velocidade máxima em cada radar em cada dia
+#'    - para o grupo de controle é a velocidade do dicionário dos radares
+#'    - para o grupo tratado, tenho que ajustar
+#'    
+#' pegar o banco de dados da previsão da velocidade de hypercongestion
+#' 
+#' rodar separado grupo de controle e grupo de tratamento
+#' CONTROLE
+#'    - abrir banco de 5 minutos
+#'    - left_join com banco de hypercongestion (by = id)
+#'    - classificar em hypercongestion com base na velocidade média do 5 minutos
+#'    - agrupar por hora: n = n(), n_hypercongestion, fazer a probabilidade para a hora
+#'    - agrupar por dia, n = n(), n_hypercongestion, fazer a probabilidade para o dia
+#' TRATAMENTO
+#'    - 
 
+source("scripts_tempos_viagens/make_hypercongestion.R")
+source("scripts_tempos_viagens/hyperc_viz.R")
+source("scripts_tempos_viagens/make_hypercongestion_data.R")
+#'    - "data/intermediate/radares_hypc_day.parquet"
+#'    - "data/intermediate/radares_hypc_hour.parquet"
 
+source("scripts_tempos_viagens/did_analise_hypc_hour.R")
+source("scripts_tempos_viagens/did_analise_hypc_hour_no07.R")
+source("scripts_tempos_viagens/did_analise_hypc_hour_only07.R")
 
+# ############################################################################ #
+####                      HOMOGENEIZAÇÃO DE TRÁFIGO                         ####
+# ############################################################################ #
+#' Três estratégias:
+#'    1) FPH =Vhp/(4 * V15) (volume total da hora dividido por 4x15min de maior volume)
+#'    2) FPH =Vhp/(12 * V5) (volume total da hora dividido por 12x5min de maior volume)
+#'    3) std do volume por hora em cada semana
 
-
+# source("scripts_tempos_viagens/make_fhp_df.R")
+source("scripts_tempos_viagens/did_analise_fhp_15min.R")
+source("scripts_tempos_viagens/did_analise_fhp_15min_no07.R")
+source("scripts_tempos_viagens/did_analise_fhp_15min_only07.R")
+source("scripts_tempos_viagens/did_analise_fhp_5min.R")
+source("scripts_tempos_viagens/did_analise_fhp_5min_no07.R")
+source("scripts_tempos_viagens/did_analise_fhp_5min_only07.R")
 
 # ############################################################################ #
 ####                                 OLD                                    ####
