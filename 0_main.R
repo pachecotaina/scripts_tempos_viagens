@@ -1,6 +1,5 @@
 rm(list = ls())
 gc()
-
 options(scipen=999)
 
 # set parameters
@@ -42,12 +41,6 @@ lag <- dplyr::lag
 lead <- dplyr::lead
 
 tmap_mode("view")
-
-# import other codes ----
-# source <- function(f, encoding = 'UTF-8') {
-#   l <- readLines(f, encoding=encoding)
-#   eval(parse(text=l),envir=.GlobalEnv)
-# }
 
 source("scripts_tempos_viagens/funs/helper_feriados.R")
 source("scripts_tempos_viagens/funs/helper_ids_speedcameras.R")
@@ -374,73 +367,162 @@ source("scripts_tempos_viagens/did_analise_radares_vel_hora_log_only07.R")
 #' TRATAMENTO
 #'    - 
 
+
+#' Define o ponto de supersaturação com base em um modelo linear simples:
+#'    model <- lm(volume ~ vel + vel2, data = df_model)
+#' Para o grupo de controle só há um ponto de máximo
+#' Para o grupo de tratamento calculamos dois pontos de máximo, um para antes e 
+#' outro para depois da mudança de velocidade
 source("scripts_tempos_viagens/make_hypercongestion.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_hour/", "radares_hora_", vec_dep_hours[h], ".parquet"
+#' OUTPUT
+#'    - "data/output/hypercongestion_by_id.parquet"
+
+#' Gera gráficos com o ponto de supersaturação para diferentes conjuntos de vias
+#' Está salvando apenas o gráfico para 50km/h porque é o que usamos no relatório,
+#' mas o código tem gráficos para outros conjuntos de vias.
 source("scripts_tempos_viagens/hyperc_viz.R")
+#' INPUT
+#'    - "data/output/hypercongestion_by_id.parquet"
+#' OUTPUT
+#'    - "figures_hypc_viz/velocidade_hypc_50kmh.png"
+
+#' Com base nos pontos de supersaturação definidos anteriormente, esse código
+#' abre os dados brutos organizados por 5 minutos, e cria uma dummy indicando se
+#' os 5 minutos estão ou não supersaturados.
 source("scripts_tempos_viagens/make_hypercongestion_data.R")
-#'    - "data/intermediate/radares_hypc_day.parquet"
+#' INPUT
+#'    - "data/output/hypercongestion_by_id.parquet"
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "/Users/tainasouzapacheco/Library/CloudStorage/Dropbox/Academico/UAB/tese/ch_overpass/data/intermediate/parquet/"
+#'         - "\\ d{8}_05\\.parquet$"
+#' OUTPUT
+#'    - "data/intermediate/radares_hypc_hour_control.parquet"
+#'    - "data/intermediate/radares_hypc_hour_treat.parquet"
 #'    - "data/intermediate/radares_hypc_hour.parquet"
+#'    - "data/intermediate/radares_hypc_day_control.parquet"
+#'    - "data/intermediate/radares_hypc_day_treat.parquet"
+#'    - "data/intermediate/radares_hypc_day.parquet"
+
+#' Cria 5 gráficos de vizualização para cada radar incluído na análise
+source("scripts_tempos_viagens/hyperc_viz_plots.R")
+#' INPUT
+#'    - "data/output/hypercongestion_by_id.parquet"
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_15min.parquet"
+#' OUTPUT
+#'    - "figures_hypc_viz/"
+#'        - "{fig_folder}{id_i}_speed_flow_hypc_06_21.png"
+#'        - "{fig_folder}{id_i}_speed_flow_period_06_21.png"
+#'        - "{fig_folder}{id_i}_speed_density_hypc_06_21.png"
+#'        - "{fig_folder}{id_i}_density_volume_hypc_06_21.png"
+#'        - "{fig_folder}{id_i}_density_volume_period_06_21.png"
+
+source("scripts_tempos_viagens/did_analise_hypc_day.R")
+#' INPUT
+#'    - "data/intermediate/radares_hypc_day.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_hypc_day"
+#'    - fig_folder <- "figures_hypc_day"
 
 source("scripts_tempos_viagens/did_analise_hypc_hour.R")
-source("scripts_tempos_viagens/did_analise_hypc_hour_no07.R")
-source("scripts_tempos_viagens/did_analise_hypc_hour_only07.R")
+#' INPUT
+#'    - "data/intermediate/radares_hypc_hour.parquet"
+#' OUTPUT
+#'    - "data/intermediate/radares_hypc_hour/" >> "radares_hora_{.x}.parquet"
+#'    - res_folder <- "results_hypc_hour"
+#'    - fig_folder <- "figures_hypc_hour"
 
-source("scripts_tempos_viagens/hyperc_viz_plots.R")
+source("scripts_tempos_viagens/did_analise_hypc_hour_no07.R")
+#' INPUT
+#'    - "data/intermediate/radares_hypc_hour.parquet"
+#' OUTPUT
+#'    - "data/intermediate/radares_hypc_hour/" >> "radares_hora_{.x}.parquet"
+#'    - res_folder <- "results_hypc_hour_no07"
+#'    - fig_folder <- "figures_hypc_hour_no07"
+
+source("scripts_tempos_viagens/did_analise_hypc_hour_only07.R")
+#' INPUT
+#'    - "data/intermediate/radares_hypc_hour.parquet"
+#' OUTPUT
+#'    - "data/intermediate/radares_hypc_hour/" >> "radares_hora_{.x}.parquet"
+#'    - res_folder <- "results_hypc_hour_only07"
+#'    - fig_folder <- "figures_hypc_hour_only07"
 
 # ############################################################################ #
 ####                      HOMOGENEIZAÇÃO DE TRÁFIGO                         ####
 # ############################################################################ #
-#' Três estratégias:
-#'    1) FPH =Vhp/(4 * V15) (volume total da hora dividido por 4x15min de maior volume)
-#'    2) FPH =Vhp/(12 * V5) (volume total da hora dividido por 12x5min de maior volume)
-#'    3) std do volume por hora em cada semana
-
-# source("scripts_tempos_viagens/make_fhp_df.R")
-source("scripts_tempos_viagens/did_analise_fhp_15min.R")
-source("scripts_tempos_viagens/did_analise_fhp_15min_no07.R")
-source("scripts_tempos_viagens/did_analise_fhp_15min_only07.R")
-source("scripts_tempos_viagens/did_analise_fhp_5min.R")
-source("scripts_tempos_viagens/did_analise_fhp_5min_no07.R")
-source("scripts_tempos_viagens/did_analise_fhp_5min_only07.R")
-
-# ############################################################################ #
-####                                 OLD                                    ####
-# ############################################################################ #
-#' >> Olha para os deslocamentos entre 2015-01-01 e 2016-12-31, filtra para vias
-#' que tiveram a velocidade alterada em 2015 ou depois (ano_vigor > 2014)
-#' >> Código está pouco estruturado, ainda são testes de possíveis análises.
+#' Esse código demora um pouco para rodar.
+#' Gera um arquivo de FPH para 5 e para 15 minutos a partir dos dados brutos.
+source("scripts_tempos_viagens/make_fhp_df.R")
 #' INPUT
-#'    - "data/intermediate/osrm/pairs_od_sample.parquet"
-#'    - "data/input/vias_vel_reduz/ViasVelocidadeReduzida_Bloomberg_SIRGAS200023S.shp"
-#'    - paste0("data/intermediate/matrix_grouped_osrm/", vec_days, ".parquet") 
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "/Users/tainasouzapacheco/Library/CloudStorage/Dropbox/Academico/UAB/tese/ch_overpass/data/intermediate/parquet/"
+#'        - pattern = "\\ d{8}_05\\.parquet$"
 #' OUTPUT
-#'    - "figures/wald_test_all_ep.png"              (todas as rotas, evening peak)
-#'    - "figures/tot_rotas_dia_all_ep.png" (número de rotas por dia, evening peak) 
-#'    - figures/tot_rotas_dia_all_all.png  (número de rotas com ao menos 1 observação no dia) 
-# source("scripts_tempos_viagem/analise_preliminar.R")
-#' IDEIAS:
-#'    - Efeito composição: ao longo do tempo temos cada vez mais rotas tanto no
-#'    grupo de tratamento quanto no grupo de controle. Isso acontece porque 2015
-#'    foi um ano de expansão dos radares na cidade. 
-#'         a. trabalhar com amostragens aleatórias criando um grupo de controle
-#'         comparável ao grupo de rotas no grupo de tratamento (matching)
-#'         b. Como temos um grupo de controle maior, então podemos fazer o 
-#'         matching N vezes, e ver como o resultado muda. Vai haver variabilidade,
-#'         mas a distribuição deveria estar centrada no valor verdadeiro. 
-#'    - Na verdade esse efeito composição é ainda mais complexo, porque eu estou 
-#'    no mesmo valor de "running_variable" observações que estão em julho com 
-#'    outras que estão em outubro. Assim, vai sempre ter mais observações perto 
-#'    zero porque foi a partir do mês 07 que as vias passaram a ter redução de
-#'    velocidade. 
-#'        - isso é problemático pela sazonalidade nos tempos de deslocamento. 
-#'        Talvez incluir um efeito fixo de mês possa ajudar a limpar isso. 
-#'        - ou fazer uma equação que estime os tempos de viagem, e ficar só com
-#'        os resíduos (que nem o paper da expansão do metrô na China)
-#'
-#' VARIÁVEIS PARA FAZER O MATCHING:
-#'    - classificação viária (from_id, to_id)
-#'    - velocidade máxima (from_id, to_id)
-#'    - número de lanes (from_id, to_id)
-#'    - zona da cidade (8 zonas)
-#'    - maior volume no pico da manhã ou da tarde         
+#'    - "data/intermediate/radares_fhp_15min.parquet"
+#'    - "data/intermediate/radares_fhp_5min.parquet"
 
 
+source("scripts_tempos_viagens/did_analise_fhp_15min.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_15min.parquet"
+#' OUTPUT
+#'    - "data/intermediate/radares_fhp15min/" >> "radares_hora_{.x}.parquet"
+#'    - res_folder <- "results_fhp15min"
+#'        - "/att_log_summary_table_fhp15min.csv"
+#'        - "/aggte_log_combined_summary_fhp15min.csv"
+#'        - "/att_hour_", vec_dep_hours[i], ".rds"
+#'    - fig_folder <- "figures_fhp15min"
+#'        - "/ES_per_group_hour_", vec_dep_hours[i], "_", control_type[j], ".png"
+#'        - "/siggroups_hour_", vec_dep_hours[i], "_", control_type[j], ".png")
+#'        - "/siggroups_hour_", vec_dep_hours[i], "_", control_type[j], "_1col.png"
+#'        - "/eventstudy_hour_", vec_dep_hours[i], "_", control_type[j], ".png"
+#'        - "/did_att_all_hours.png"
+#'        - "/did_att_all_hours_nevertreated.png"
+#'        - "/did_att_all_hours_3groups.png"
+
+
+source("scripts_tempos_viagens/did_analise_fhp_15min_no07.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_15min.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_fhp15min_no07"
+#'    - fig_folder <- "figures_fhp15min_no07"
+
+source("scripts_tempos_viagens/did_analise_fhp_15min_only07.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_15min.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_fhp15min_only07"
+#'    - fig_folder <- "figures_fhp15min_only07"
+
+source("scripts_tempos_viagens/did_analise_fhp_5min.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_5min.parquet"
+#' OUTPUT
+#'    - "data/intermediate/radares_fhp5min/" >> "radares_hora_{.x}.parquet"
+#'    - res_folder <- "results_fhp5min"
+#'    - fig_folder <- "figures_fhp5min"
+
+source("scripts_tempos_viagens/did_analise_fhp_5min_no07.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_5min.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_fhp5min_no07"
+#'    - fig_folder <- "figures_fhp5min_no07"
+
+source("scripts_tempos_viagens/did_analise_fhp_5min_only07.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_fhp_5min.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_fhp5min_only07"
+#'    - fig_folder <- "figures_fhp5min_only07"
