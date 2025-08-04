@@ -1,61 +1,76 @@
-gc()
-df_result_week <- read_parquet(
-  "data/intermediate/radares_5min_vol_week_averages.parquet")
+# ############################################################################ #
+####                             LOAD DATA                                  ####
+# ############################################################################ #
+df_result_week <- open_dataset(
+  "data/intermediate/radares_5min_vol_week_averages.parquet") %>% 
+  distinct(
+    id, data_ativacao, data_vigor, veloc_aps, mes_vigor, ano_vigor, 
+    mes_ano, treat, id_num) %>% 
+  collect()
 
-vec_ids <- unique(df_result_week$id)
+df_result_fhp15 <- read_parquet(
+  "data/intermediate/radares_fhp_15min.parquet") %>% 
+  left_join(df_result_week, by = "id") %>% 
+  mutate(
+    month = month(data),
+    month_treat = mes_vigor,
+    year = year(data),
+    month = ifelse(year == 2016, month + 12, month),
+    weekday = weekdays(data)) %>% 
+  filter(weekday %notin% c("Sábado", "Domingo", "Saturday", "Sunday")) %>% 
+  mutate(
+    vel_p_ln = ifelse(
+      vel_mean > 0, 
+      log(vel_mean),
+      NA_integer_))
 
-# needs to run the following code before, to process hourly data
-# source("scripts_tempos_viagens/did_analise_radares_vol_hora.R")
-
+vec_ids <- unique(df_result_fhp15$id)
 # ############################################################################ #
 ####              OPEN PARQUET FILE WITH DATA EVERY HOUR                    ####
 # ############################################################################ #
-# Setup
-output_dir <- "data/intermediate/radares_hour/"
+# Create output folder if needed
+output_dir <- "data/intermediate/radares_fhp15min/"
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
+# Ensure hora is 2-digit character
+df_result_fhp15 <- df_result_fhp15 %>%
+  mutate(hora = str_pad(hora, 2, "left", "0"))
+
+# Split by hour and save
+split(df_result_fhp15, df_result_fhp15$hora) %>% walk2(
+  names(.),
+  .,
+  ~ write_parquet(.y, file.path(output_dir, glue("radares_hora_{.x}.parquet")))
+)
+
+# ############################################################################ #
+####                                LOAD DATA                               ####
+# ############################################################################ #
+vec_dep_hours <- str_pad(0:23, 2, "left", "0")
+
+list_hourly_data <- list()
+for (h in seq_along(vec_dep_hours)) {
+  list_hourly_data[[h]] <- read_parquet(
+    paste0(output_dir, "radares_hora_", vec_dep_hours[h], ".parquet")) 
+}
+
+# ############################################################################ #
+####                              SETUP                                     ####
+# ############################################################################ #
 res_folder <- "results_vel_hour_log_no07"
 fig_folder <- "figures_vel_hour_log_no07"
 
 if (!dir.exists(res_folder)) dir.create(res_folder, recursive = TRUE)
 if (!dir.exists(fig_folder)) dir.create(fig_folder, recursive = TRUE)
 
-plot_y_lab <-"ATT (Δ velocidade média - km/h)"
-plot_y_lab_pct <-"ATT (Δ % na velocidade média)"
+plot_y_lab <-"ATT (Δ % na velocidade média)"
+plot_title <- "Efeitos por grupo de tratamento - Δ % na velocidade média"
+plot_title_dyn <- "Efeito dinâmico - Δ % na velocidade média"
 
-att_summary_table_name <- "/att_log_summary_table_vel_log_no07.csv"
-aggte_combined_summary_name <-  "/aggte_log_combined_summary_vel_log_no07.csv"
+att_summary_table_name <- "/att_log_summary_table_vel_hour_log_no07.csv"
+aggte_combined_summary_name <-  "/aggte_log_combined_summary_vel_hour_log_no07.csv"
 
-# ############################################################################ #
-####                                LOAD DATA                               ####
-# ############################################################################ #
-df_result_week <- read_parquet(
-  "data/intermediate/radares_5min_vol_week_averages.parquet") %>% 
-  distinct(
-    id, data_ativacao, data_vigor, mes_vigor, ano_vigor, mes_ano, treat, id_num)
-
-vec_dep_hours <- str_pad(0:23, 2, "left", "0")
-
-list_hourly_data <- list()
-
-for (h in seq_along(vec_dep_hours)) {
-  list_hourly_data[[h]] <- read_parquet(
-    paste0(output_dir, "radares_hora_", vec_dep_hours[h], ".parquet")) %>% 
-    filter(vel_p <= 150) %>% 
-    left_join(df_result_week, by = "id") %>% 
-    mutate(
-      month = month(data),
-      month_treat = mes_vigor,
-      year = year(data),
-      month = ifelse(year == 2016, month + 12, month),
-      weekday = weekdays(data),
-      vel_p = as.numeric(vel_p)) %>% 
-    filter(weekday %notin% c("Sábado", "Domingo", "Saturday", "Sunday")) %>% 
-    mutate(
-      vel_p_ln = ifelse(
-        vel_p > 0, 
-        log(vel_p),
-        NA_integer_))
-}
+dep_var <- "vel_p_ln"
 
 # ############################################################################ #
 ####                                RUN ANALYSIS                            ####
@@ -79,12 +94,12 @@ for (j in seq_along(control_type)) {
     
     tryCatch({
       # Load hourly dataset
-      df_hour <- list_hourly_data[[i]] %>%
-        filter(month_treat != 6 & month_treat != 7)
+      df_hour <- list_hourly_data[[i]] %>% 
+        filter(month_treat %notin% c(6,7))
       
       # Estimate ATT
       att <- att_gt(
-        yname = "vel_p_ln",
+        yname = dep_var,
         tname = "month",
         idname = "id_num",
         gname = "month_treat",
@@ -116,7 +131,7 @@ for (j in seq_along(control_type)) {
         scale_color_viridis_d() +
         scale_x_continuous(breaks = min(list_att[[i]]$event_time):max(list_att[[i]]$event_time)) +
         labs(
-          x = "Tempo desde a mudança de velocidade",
+          x = "Meses desde a mudança de velocidade",
           y = plot_y_lab,
           color = "Mês de tratamento",
           title = paste0("Efeitos por grupo de tratamento - ", vec_dep_hours[i], "h"),
@@ -135,8 +150,8 @@ for (j in seq_along(control_type)) {
       simple_did <- aggte(
         att, 
         type = "simple", 
-        min_e = -9,
-        max_e = 12,
+        # min_e = -9,
+        # max_e = 12,
         na.rm = TRUE)
       #'simple: this just computes a weighted average of all group-time average 
       #' treatment effects with weights proportional to group size
@@ -184,7 +199,7 @@ for (j in seq_along(control_type)) {
             mes_real = if_else(time > 12, time - 12, time),
             data = as.Date(paste0(ano, "-", mes_real, "-01"))
           ) %>% 
-          filter(time >= 4) %>% 
+          # filter(time >= 4) %>% 
           mutate(
             período = ifelse(time < group, "Antes da mudança", "Após a mudança de velocidade"),
             mês = as.factor(time),
@@ -225,20 +240,20 @@ for (j in seq_along(control_type)) {
           height = 8)
         
         p_groups_1col <- p_groups +
-          facet_wrap(~group, ncol = 1, scales = "free")
+          facet_wrap(~group, ncol = 2)
         
         ggsave(
           paste0(fig_folder, "/siggroups_hour_", vec_dep_hours[i], "_", control_type[j], "_1col.png"), 
           p_groups_1col, 
-          width = 14, 
-          height = 18)
+          width = 20, 
+          height = 27)
         
         # Event-study aggregation
         es <- aggte(
           att, 
           type = "dynamic", 
-          min_e = -9,
-          max_e = 12,
+          # min_e = -9,
+          # max_e = 12,
           na.rm = TRUE)
         
         # Summary ES
@@ -261,8 +276,8 @@ for (j in seq_along(control_type)) {
         group_effects <- aggte(
           att, 
           type = "group", 
-          min_e = -9,
-          max_e = 12,
+          # min_e = -9,
+          # max_e = 12,
           na.rm = TRUE)
         
         # Summary GE
@@ -282,6 +297,7 @@ for (j in seq_along(control_type)) {
         # Save event study plot
         es_tbl <- broom::tidy(es)
         p_es <- es_tbl %>%
+          filter(event.time >= -9 & event.time <= 12) %>% 
           mutate(periodo = ifelse(event.time <= 0, "Antes da mudança", "Após a mudança de velocidade")) %>%
           ggplot(aes(x = as.factor(event.time), y = estimate, color = periodo)) +
           geom_hline(yintercept = 0, linetype = "dashed", color = "darkgray") +
@@ -296,8 +312,8 @@ for (j in seq_along(control_type)) {
               "ATT médio geral: ", 
               round(es$overall.att, 2), 
               " [", round(es$overall.att - 1.96*es$overall.se, 2), ", ", 
-              round(es$overall.att + 1.96*es$overall.se, 2), "]"),
-            caption = caption_label[j]
+              round(es$overall.att + 1.96*es$overall.se, 2), "]")
+            # caption = caption_label[j]
           ) +
           theme_minimal() +
           my_theme +
@@ -334,11 +350,10 @@ att_summary_table %>%
     position = position_dodge(width = 0.8)) +
   labs(
     x = "Hora do dia\n(viagens que começam dentro dessa hora)",
-    y = plot_y_lab_pct,
+    y = plot_y_lab,
     color = "Grupo de controle:"
   ) + 
-  # coord_cartesian(ylim = c(-0.05, 0.1))+
-  scale_y_continuous(labels = scales::percent_format())+
+  # coord_cartesian(ylim = c(-0.1, 0.01))+
   my_theme +
   theme(legend.position = c(0.5, 0.92), legend.direction = "horizontal")
 
@@ -349,9 +364,7 @@ ggsave(
   height = 8)
 
 att_summary_table %>% 
-  mutate(
-    mean_ATT_pct = (mean_ATT - 1)*100,
-    controle = ifelse(did_control_type == "nevertreated", "Rotas nunca tratadas", "Rotas ainda não tratadas")) %>% 
+  mutate(controle = ifelse(did_control_type == "nevertreated", "Rotas nunca tratadas", "Rotas ainda não tratadas")) %>% 
   filter(controle == "Rotas nunca tratadas") %>% 
   ggplot(aes(x = as.factor(hour), y = mean_ATT, color = controle)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "darkgray") +
@@ -360,7 +373,7 @@ att_summary_table %>%
     aes(ymin = mean_ATT - 1.96*se_ATT, ymax = mean_ATT + 1.96*se_ATT), width = 0.2,
     position = position_dodge(width = 0.8)) +
   geom_label(
-    aes(label = sprintf("%.2f", mean_ATT*100)),
+    aes(label = sprintf("%.3f", mean_ATT)),
     vjust = 0.5, # move label above the point
     size = 3,
     position = position_dodge(width = 0.8),
@@ -368,51 +381,9 @@ att_summary_table %>%
   ) +
   labs(
     x = "Hora do dia\n(viagens que começam dentro dessa hora)",
-    y = plot_y_lab_pct,
-    color = "Grupo de controle:"
+    y = plot_y_lab
   ) + 
-  # coord_cartesian(ylim = c(-0.05, 0.08))+
-  scale_y_continuous(labels = scales::percent_format())+
-  my_theme +
-  theme(legend.position = "none", legend.direction = "horizontal")
-
-ggsave(
-  paste0(fig_folder, "/did_att_all_hours_nevertreated.png"), 
-  plot = last_plot(), 
-  width = 11, 
-  height = 5)
-
-att_summary_table %>% 
-  mutate(
-    se_ATT_log =100 * exp(mean_ATT) * log(se_ATT),
-    perc_change = (exp(mean_ATT) - 1) * 100,
-    ci_lower = (exp(mean_ATT - 1.96 * se_ATT_log) - 1) * 100,
-    ci_upper = (exp(mean_ATT + 1.96 * se_ATT_log) - 1) * 100,
-    controle = ifelse(did_control_type == "nevertreated", "Rotas nunca tratadas", "Rotas ainda não tratadas")) %>% 
-  filter(controle == "Rotas nunca tratadas") %>% 
-  ggplot(aes(x = as.factor(hour), y = perc_change, color = controle)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "darkgray") +
-  geom_point(position = position_dodge(width = 0.8)) +
-  geom_errorbar(
-    aes(
-      ymin = (exp(mean_ATT - 1.96*se_ATT)-1)*100, 
-      ymax = (exp(mean_ATT + 1.96*se_ATT)-1)*100), 
-    width = 0.2,
-    position = position_dodge(width = 0.8)) +
-  geom_label(
-    aes(label = sprintf("%.2f", perc_change)),
-    vjust = 0.5, # move label above the point
-    size = 3,
-    position = position_dodge(width = 0.8),
-    color = "tomato"  # optional: keep text color consistent
-  ) +
-  labs(
-    x = "Hora do dia\n(viagens que começam dentro dessa hora)",
-    y = plot_y_lab_pct,
-    color = "Grupo de controle:"
-  ) + 
-  # coord_cartesian(ylim = c(-0.05, 0.08))+
-  # scale_y_continuous(labels = scales::percent_format())+
+  # coord_cartesian(ylim = c(-60, 80))+
   my_theme +
   theme(legend.position = "none", legend.direction = "horizontal")
 
@@ -449,12 +420,12 @@ aggte_combined_summary %>%
     y = plot_y_lab,
     color = "Grupo de controle:"
   ) + 
-  # coord_cartesian(ylim = c(-0.05, 0.1))+
+  # coord_cartesian(ylim = c(-80, 90))+
   facet_wrap(~type, ncol = 1)+
   my_theme +
   theme(
     legend.position = "bottom", legend.direction = "horizontal",
-    legend.box.margin = margin(t =-5, r = 0, b = 0, l = 0))
+    legend.box.margin = margin(t =-9, r = 0, b = 0, l = 0))
 
 ggsave(
   paste0(fig_folder, "/did_att_all_hours_3groups.png"), 
@@ -462,7 +433,5 @@ ggsave(
   width = 14, 
   height = 8)
 
-write.csv(
-  att_summary_table, paste0(res_folder, att_summary_table_name), row.names = FALSE)
-write.csv(
-  aggte_combined_summary, paste0(res_folder, aggte_combined_summary_name), row.names = FALSE)
+write.csv(att_summary_table, paste0(res_folder, att_summary_table_name), row.names = FALSE)
+write.csv(aggte_combined_summary, paste0(res_folder, aggte_combined_summary_name), row.names = FALSE)

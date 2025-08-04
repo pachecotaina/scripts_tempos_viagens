@@ -69,7 +69,7 @@ for (j in seq_along(control_type)) {
           event_time = time - group)
       
       # Save ATT object to disk
-      saveRDS(att, paste0("results/att_hour_", sprintf("%02d", vec_dep_hours[i]), ".rds"))
+      saveRDS(att, paste0("results/att_hour_log", sprintf("%02d", vec_dep_hours[i]), ".rds"))
       
       # Make plot
       p_es_group <- list_att[[i]] %>% 

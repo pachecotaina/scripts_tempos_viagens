@@ -3,33 +3,31 @@ gc()
 
 options(scipen=999)
 
-# set JAVA parameters (for r5r)
-Sys.setenv("JAVA_HOME" = "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home")
-Sys.setenv("PATH" = paste(Sys.getenv("PATH"), "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin", sep = ":"))
-options(java.parameters = '-Xmx20G')
+# set parameters
 Sys.setlocale("LC_TIME", "pt_BR.UTF-8")
 
 # Carregando os pacotes e instalando algum se necessário ----
-load.lib <- c("tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr", "purrr",
-              "stats", "data.table", "arrow", "lubridate", "ggspatial", #"ggsn",
-              "spatstat", "raster", "geodist", #"slopes", 
-              "tmap", "car", "scales",
-              "sandwich",          #para vcoc()
-              "lmtest",            #para coeftest()
-              "huxtable", "broom", #para exportar regressoes em tabela
-              "zoo",            # for moving averages
-              "plm", "fixest",  # for FE
-              "eventstudyr",    # for event study
-              "stargazer",      # for regression table in Latex
-              "pglm", "lme4",   # for logit panels
-              "r5r", "rJava", "osrm",
-              "furrr", "future",# for parallel computing
-              "sfnetworks", "tidygraph", # for network analysis
-              "tools", "stplanr",
-              "osmextract", "ggridges",
-              "gtfstools", "igraph", "tidygraph", "ggraph",
-              "sfnetworks", "stplanr", "spDataLarge",
-              "arrow", "did", "fs", "glue")
+load.lib <- c(
+  "tidyverse", "sf", "xlsx", "readxl", "foreign", "stringr", "purrr",
+  "stats", "data.table", "arrow", "lubridate", "ggspatial", #"ggsn",
+  "spatstat", "raster", "geodist", #"slopes", 
+  "tmap", "car", "scales",
+  "sandwich",          #para vcoc()
+  "lmtest",            #para coeftest()
+  "huxtable", "broom", #para exportar regressoes em tabela
+  "zoo",            # for moving averages
+  "plm", "fixest",  # for FE
+  "eventstudyr",    # for event study
+  "stargazer",      # for regression table in Latex
+  "pglm", "lme4",   # for logit panels
+  "r5r", "rJava", "osrm",
+  "furrr", "future",# for parallel computing
+  "sfnetworks", "tidygraph", # for network analysis
+  "tools", "stplanr",
+  "osmextract", "ggridges",
+  "gtfstools", "igraph", "tidygraph", "ggraph",
+  "sfnetworks", "stplanr", "spDataLarge",
+  "arrow", "did", "fs", "glue")
 install.lib <- load.lib[!load.lib %in% installed.packages()]
 for(lib in install.lib) install.packages(lib,dependencies=TRUE)
 sapply(load.lib, require, character=TRUE)
@@ -162,13 +160,59 @@ source("scripts_tempos_viagem/make_matrix_grouped_osrm.R")
 ####                              DESCRIPTIVES                              ####
 # ############################################################################ #
 source("scripts_tempos_viagem/rotas_por_tratamento.R")
+#' INPUT
+#'    - "data/output/df_dep_hour_hour_", vec_dep_hours[h], ".parquet"
+#'    - "data/intermediate/osrm/routes_od_streets_2015.gpkg"
+#'    - "data/intermediate/osrm/pairs_od_sample.parquet"
+#' OUTPUT
+#'    - "figures/map_vias_tratadas_controle_grupo", vec_meses[i],".png"
+#'    - "figures/map_vias_tratadas_controle_grupoALL.png"
+#'    - "figures/map_vias_tratadas_controle_grupo_07others.png"
+
 source("scripts_tempos_viagem/make_plots.R")
+#' INPUT
+#'    - "data/output/df_dep_hour_hour_", vec_dep_hours[h], ".parquet"
+#' OUTPUT
+#'    - "figures/rotas_por_dia_", sprintf("%02d", vec_dep_hours[i]), "_sem_controle.png"
+#'    - "figures/rotas_por_dia_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/rotas_por_mes_", sprintf("%02d", vec_dep_hours[i]), "_sem_controle.png"
+#'    - "figures/rotas_por_mes_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/tempos_de_viagem_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/velocidade_viagem_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/distancia_viagem_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/n_veiculos_mes_", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/n_veiculos_mes_media", sprintf("%02d", vec_dep_hours[i]), ".png"
+#'    - "figures/radares_por_mes_all_sem_controle.png"
+#'    - "figures/radares_por_mes_all.png"
+#'    - "figures/rotas_por_mes_all_sem_controle.png"
+#'    - "figures/rotas_por_mes_all.png"
+#'    - "figures/n_veiculos_mes_all.png"
+#'    - "figures/n_veiculos_mes_mean_all.png"
+#'    - "figures/distancia_viagem_all.png"
+
 source("scripts_tempos_viagem/map_rotas_tratadas_controle.R")
+#' INPUT
+#'    - "data/intermediate/osrm/routes_od_streets_2015.gpkg"
+#'    - "data/intermediate/osrm/pairs_od_sample.parquet"
+#' OUTPUT
+#'    - "figures/map_vias_tratadas_controle.png"
 
 # ############################################################################ #
 ####                      CREATE DATA FOR ANALYSIS                          ####
 # ############################################################################ #
+#' Esse código cria os dados no formato necessário para o DiD de rotas.
+#' 1) definir intervalo para análise: "2015-01-01", "%Y-%m-%d" até "2016-12-31"
+#' 2) abrir rotas de interesse
+#' 3) abrir vias com velocidades alteradas
+#' 4) unir bancos e verificar quantas rotas há de cada tipo
+#' 5) agrupar rotas por hora
 source("scripts_tempos_viagens/did_make_data.R")
+#' INPUT
+#'    - "data/intermediate/osrm/pairs_od_sample.parquet"
+#'    - "data/input/vias_vel_reduz/ViasVelocidadeReduzida_Bloomberg_SIRGAS200023S.shp"
+#'    - "/Users/tainasouzapacheco/Downloads/matrix_grouped_osrm/", vec_days, ".parquet"
+#' OUTPUT
+#'    - write_parquet(.x, paste0("data/output/df_dep_hour_", .y, ".parquet")
 
 # ############################################################################ #
 ####                       ANALYSIS - ALL GROUPS                            ####
@@ -189,31 +233,126 @@ source("scripts_tempos_viagens/did_analise.R")
 #'    - "results/aggte_combined_summary.csv"
 
 source("scripts_tempos_viagens/did_analise_log.R")
+#' INPUT
+#'    - "data/output/df_dep_hour_hour_", vec_dep_hours[h], ".parquet"
+#' OUTPUT
+#'    - ("results/att_hour_log", sprintf("%02d", vec_dep_hours[i]), ".rds")
+#'    - mesmas figuras de antes, mas na pasta "figures_log"
 
 # ############################################################################ #
 ####                    ANALYSIS - EXCLUDING GROUP 7                        ####
 # ############################################################################ #
 source("scripts_tempos_viagens/did_analise_no07.R")
-
 source("scripts_tempos_viagens/did_analise_log_no07.R")
-
-# ############################################################################ #
-####                       ANALYSIS - ONLY GROUP 7                          ####
-# ############################################################################ #
 source("scripts_tempos_viagens/did_analise_only07.R")
-
 source("scripts_tempos_viagens/did_analise_log_only07.R")
+#' INPUT
+#'    - "data/output/df_dep_hour_hour_", vec_dep_hours[h], ".parquet"
+#' OUTPUT
+#'    - results/
+#'        - aggte_only07_combined_summary
+#'        - aggteno07__combined_summary
+#'        - att_no07_summary_table
+#'        - att_only07_summary_table
+#'    - figures_no07
+#'    - figures_log_no07
+#'    - figures_only07
+#'    - figures_log_only07
+
 
 # ############################################################################ #
 ####         MAKE DATA - VOLUMES AND SPEEDS AT THE SPEED CAMERA             ####
 # ############################################################################ #
 source("scripts_tempos_viagens/make_df_radares.R")
+#' INPUT
+#'    - "data/input/vias_vel_reduz/ViasVelocidadeReduzida_Bloomberg_SIRGAS200023S.shp"
+#'    - helper_geo
+#'    - "/Users/tainasouzapacheco/Library/CloudStorage/Dropbox/Academico/UAB/tese/ch_overpass/data/intermediate/parquet/"
+#'        - pattern = "\ \ d{8}_05\\.parquet$"
+#'    - 
+#' OUTPUT
+#'    - "figures/radares_data_vigor.png"
+#'    - "data/intermediate/radares_5min_vol.parquet"
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_5min_vol_day_averages.parquet"
+
+source("scripts_tempos_viagens/n_radares_por_mes.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#' OUTPUT
+#'    - table(df_result_week$mes_vigor)
+
+# ############################################################################ #
+####        DiD ANALYSIS - VOLUMES AND SPEEDS AT THE SPEED CAMERA           ####
+# ############################################################################ #
 source("scripts_tempos_viagens/did_analise_radares_vol.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#' OUTPUT
+#'    - "results_radares_vol/att_hour_vol_dia.rds"
+#'    - "figures_radares_vol/ES_per_group_hour_vol_dia_", control_type[j], ".png"
+#'    - "figures_radares_vol/siggroups_hour_vol_dia_", control_type[j], ".png"
+#'    - "figures_radares_vol/siggroups_hour_vol_dia_", control_type[j], "_1col.png"
+#'    - "figures_radares_vol/eventstudy_hour_vol_dia_", control_type[j], ".png"
+#'    - "figures_radares_vol/did_att_all_vol_dia.png"
+
 source("scripts_tempos_viagens/did_analise_radares_vol_dia.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_day_averages.parquet"
+#' OUTPUT
+#'    - o mesmo de antes, mas nas pastas:
+#'        - results_radares_vol_dia
+#'        - figures_radares_vol_dia
+
 source("scripts_tempos_viagens/did_analise_radares_vol_hora.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "/Users/tainasouzapacheco/Library/CloudStorage/Dropbox/Academico/UAB/tese/ch_overpass/data/intermediate/parquet/"
+#'        - pattern = "\\ d{8}_60\\.parquet$"
+#' OUTPUT    
+#'    - "data/intermediate/radares_hour/" >> "radares_hora_{h}.parquet"
+#'    - mesmo de antes, mas na pasta
+#'        - results_vol_hour
+#'        - figures_vol_hour
+#'    - figures_vol_hour/did_att_all_hours_nevertreated.png
+#'    - figures_vol_hour/did_att_all_hours_3groups.png
+#'    - "results_vol_hour/att_summary_table.csv"
+#'    - "results_vol_hour/aggte_combined_summary.csv"
+
 source("scripts_tempos_viagens/did_analise_radares_vel_hora.R")
+#' INPUT
+#'    - "data/intermediate/radares_5min_vol_week_averages.parquet"
+#'    - "data/intermediate/radares_hour/" >> "radares_hora_{h}.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour"
+#'    - fig_folder <- "figures_vel_hour"
 
+source("scripts_tempos_viagens/did_analise_radares_vel_hora_no07.R")
+#' INPUT
+#'    - "data/intermediate/radares_fhp15min/" >> "radares_hora_{.x}.parquet"
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour_no07"
+#'    - fig_folder <- "figures_vel_hour_no07"
 
+source("scripts_tempos_viagens/did_analise_radares_vel_hora_only07.R")
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour_only07"
+#'    - fig_folder <- "figures_vel_hour_only07"
+
+source("scripts_tempos_viagens/did_analise_radares_vel_hora_log.R")
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour_log"
+#'    - fig_folder <- "figures_vel_hour_log"
+
+source("scripts_tempos_viagens/did_analise_radares_vel_hora_log_no07.R")
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour_log_no07"
+#'    - fig_folder <- "figures_vel_hour_log_no07"
+
+source("scripts_tempos_viagens/did_analise_radares_vel_hora_log_only07.R")
+#' OUTPUT
+#'    - res_folder <- "results_vel_hour_log_only07"
+#'    - fig_folder <- "figures_vel_hour_log_only07"
 
 
 # ############################################################################ #
@@ -244,6 +383,8 @@ source("scripts_tempos_viagens/make_hypercongestion_data.R")
 source("scripts_tempos_viagens/did_analise_hypc_hour.R")
 source("scripts_tempos_viagens/did_analise_hypc_hour_no07.R")
 source("scripts_tempos_viagens/did_analise_hypc_hour_only07.R")
+
+source("scripts_tempos_viagens/hyperc_viz_plots.R")
 
 # ############################################################################ #
 ####                      HOMOGENEIZAÇÃO DE TRÁFIGO                         ####
